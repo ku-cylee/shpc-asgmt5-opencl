@@ -12,6 +12,9 @@
     exit(EXIT_FAILURE);                                                        \
   }
 
+#define GROUP_WIDTH   32
+#define VECTOR_SIZE   16
+
 static cl_int err;
 static cl_platform_id platform;
 static cl_device_id device;
@@ -23,6 +26,53 @@ static cl_mem a_d, b_d, c_d;
 
 void matmul(const float *A, const float *B, float *C, int M, int N, int K) {
   // TODO: FILL_IN_HERE
+  err = clEnqueueWriteBuffer(
+    queue, a_d, CL_TRUE,
+    0, M * K * sizeof(float), A,
+    0, NULL, NULL);
+  CHECK_ERROR(err);
+
+  err = clEnqueueWriteBuffer(
+    queue, b_d, CL_TRUE,
+    0, K * N * sizeof(float), B,
+    0, NULL, NULL);
+  CHECK_ERROR(err);
+
+  err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &a_d);
+  CHECK_ERROR(err);
+  err = clSetKernelArg(kernel, 1, sizeof(cl_mem), &b_d);
+  CHECK_ERROR(err);
+  err = clSetKernelArg(kernel, 2, sizeof(cl_mem), &c_d);
+  CHECK_ERROR(err);
+  err = clSetKernelArg(kernel, 3, sizeof(int), &M);
+  CHECK_ERROR(err);
+  err = clSetKernelArg(kernel, 4, sizeof(int), &N);
+  CHECK_ERROR(err);
+  err = clSetKernelArg(kernel, 5, sizeof(int), &K);
+  CHECK_ERROR(err);
+
+  size_t global_work_size[2] = { M, N / VECTOR_SIZE };
+  size_t local_work_size[2] = { GROUP_WIDTH, GROUP_WIDTH / VECTOR_SIZE };
+
+  for (int i = 0; i < 2; i++) {
+    size_t lcl = local_work_size[i];
+    global_work_size[i] = (global_work_size[i] + lcl - 1) / lcl * lcl;
+  }
+
+  err = clEnqueueNDRangeKernel(
+    queue, kernel, 2,
+    NULL, global_work_size, local_work_size,
+    0, NULL, NULL);
+  CHECK_ERROR(err);
+
+  err = clFinish(queue);
+  CHECK_ERROR(err);
+
+  err = clEnqueueReadBuffer(
+    queue, c_d, CL_TRUE,
+    0, M * N * sizeof(float), C,
+    0, NULL, NULL);
+  CHECK_ERROR(err);
 }
 
 static void print_platform_info(cl_platform_id platform) {
@@ -122,4 +172,12 @@ void matmul_initialize(int M, int N, int K) {
   CHECK_ERROR(err);
 }
 
-void matmul_finalize() {}
+void matmul_finalize() {
+  clReleaseMemObject(a_d);
+  clReleaseMemObject(b_d);
+  clReleaseMemObject(c_d);
+  clReleaseKernel(kernel);
+  clReleaseProgram(program);
+  clReleaseCommandQueue(queue);
+  clReleaseContext(context);
+}
