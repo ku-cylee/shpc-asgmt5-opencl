@@ -1,4 +1,4 @@
-#define TILE_SIZE     32
+#define TILE_SIZE     64
 #define VECTOR_SIZE   16
 #define VECTOR        float16
 

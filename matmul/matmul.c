@@ -13,7 +13,7 @@
     exit(EXIT_FAILURE);                                                        \
   }
 
-#define GROUP_WIDTH   32
+#define GROUP_WIDTH   64
 #define VECTOR_SIZE   16
 
 static cl_int err;
